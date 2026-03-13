@@ -1,0 +1,1654 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>아링이의 뜨개 도안 만들기</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <div id="sparkleLayer" class="sparkle-layer" aria-hidden="true"></div>
+    <button id="backButton" class="floating-back-button" type="button" aria-label="뒤로가기">←</button>
+    <main class="shell">
+      <section class="hero">
+        <div class="hero-copy">
+          <div class="hero-text-block">
+            <p class="eyebrow">Knitting Pattern Numberer</p>
+            <h1>아링이의 뜨개 도안 만들기</h1>
+            <p class="hero-text">이미지를 업로드하면 뜨개 도안용 숫자 패턴을 자동으로 만들어줘요.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="controls controls-compact">
+          <div class="toolbar">
+            <div class="toolbar-left">
+              <div class="field field-upload compact-item compact-item-upload">
+                <label for="imageInput">이미지</label>
+                <input id="imageInput" type="file" accept=".png,.jpg,.jpeg,.webp" />
+              </div>
+            </div>
+
+            <div class="toolbar-right">
+              <div class="field compact-item compact-item-small field-rows">
+                <label for="rowsInput">rows</label>
+                <input id="rowsInput" type="number" min="1" step="1" value="15" />
+              </div>
+
+              <div class="field compact-item compact-item-small field-cols">
+                <label for="colsInput">cols</label>
+                <input id="colsInput" type="number" min="1" step="1" value="15" />
+              </div>
+
+              <div class="field compact-item compact-item-small field-color-count">
+                <label for="colorCountInput">color_count</label>
+                <input id="colorCountInput" type="number" min="1" step="1" value="2" />
+              </div>
+
+              <div class="compact-action">
+                <button id="generateButton" class="button button-primary" type="button">뾰로롱 ✨</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="preview-grid">
+        <article class="preview-card">
+          <div class="preview-head">
+            <h2>원본 미리보기</h2>
+            <p>업로드한 도안 원본입니다.</p>
+          </div>
+          <div id="originalFrame" class="preview-frame">
+            <div class="empty-state">이미지를 업로드하면 여기에 원본이 표시됩니다.</div>
+          </div>
+        </article>
+
+        <article class="preview-card preview-card-result">
+          <div class="preview-head">
+            <div class="preview-head-row">
+              <h2>결과 미리보기</h2>
+              <button id="directionToggleButton" class="button button-secondary preview-direction-button" type="button">↔ 방향 바꾸기</button>
+            </div>
+            <p>클릭해서 칸을 고르고, 대표색 팔레트로 직접 수정할 수 있습니다.</p>
+          </div>
+          <div id="resultFrame" class="preview-frame">
+            <div class="empty-state">숫자 생성을 실행하면 여기에 결과가 표시됩니다.</div>
+          </div>
+
+          <section class="editor-panel">
+            <div class="editor-top">
+              <div>
+                <h3>수동 색 보정</h3>
+              </div>
+              <div class="editor-actions">
+                <button
+                  id="undoButton"
+                  class="icon-button"
+                  type="button"
+                  title="마지막 수정 취소"
+                  aria-label="마지막 수정 취소"
+                  disabled
+                >
+                  ←
+                </button>
+                <button
+                  id="resetButton"
+                  class="icon-button"
+                  type="button"
+                  title="자동 분류로 되돌리기"
+                  aria-label="자동 분류로 되돌리기"
+                  disabled
+                >
+                  ↺
+                </button>
+              </div>
+            </div>
+
+            <p id="selectionStatus" class="selection-status">
+              숫자 생성을 완료하면 대표색 팔레트가 여기에 나타납니다.
+            </p>
+
+            <div id="palette" class="palette palette-empty">
+              <div class="palette-placeholder">아직 대표색 팔레트가 없습니다.</div>
+            </div>
+          </section>
+
+          <a id="downloadButton" class="download-button is-disabled result-download" download="numbered-pattern.png">딴로드</a>
+        </article>
+      </section>
+    </main>
+
+    <div id="colorEditorModal" class="color-editor-modal" hidden>
+      <button
+        id="colorEditorBackdrop"
+        class="color-editor-backdrop"
+        type="button"
+        aria-label="대표색 편집기 닫기"
+      ></button>
+      <div class="color-editor-card" role="dialog" aria-modal="true" aria-labelledby="colorEditorTitle">
+        <div class="color-editor-head">
+          <div>
+            <p class="eyebrow color-editor-eyebrow">Palette Editor</p>
+            <h2 id="colorEditorTitle">대표색 편집</h2>
+          </div>
+          <button
+            id="colorEditorCloseButton"
+            class="icon-button"
+            type="button"
+            title="대표색 편집기 닫기"
+            aria-label="대표색 편집기 닫기"
+          >
+            ×
+          </button>
+        </div>
+
+        <p id="colorEditorLabel" class="color-editor-label">대표색을 고르고 색상을 조정해 주세요.</p>
+
+        <div class="color-editor-layout">
+          <div class="color-editor-main">
+            <div id="colorEditorSv" class="color-editor-sv" aria-label="채도와 명도 선택 영역">
+              <div class="color-editor-sv__white"></div>
+              <div class="color-editor-sv__black"></div>
+              <div id="colorEditorSvThumb" class="color-editor-sv__thumb"></div>
+            </div>
+
+            <div class="color-editor-hue-wrap">
+              <div id="colorEditorHue" class="color-editor-hue" aria-label="색상 슬라이더">
+                <div id="colorEditorHueThumb" class="color-editor-hue__thumb"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="color-editor-side">
+            <div class="color-editor-preview-block">
+              <span class="color-editor-side-label">현재 색</span>
+              <div id="colorEditorPreview" class="color-editor-preview"></div>
+            </div>
+
+            <label class="field color-editor-hex-field" for="colorEditorHexInput">
+              <span>HEX</span>
+              <input id="colorEditorHexInput" type="text" value="#FFFFFF" maxlength="7" spellcheck="false" />
+            </label>
+
+            <div class="color-editor-actions">
+              <button id="colorEditorCancelButton" class="button button-secondary" type="button">취소</button>
+              <button id="colorEditorApplyButton" class="button button-primary" type="button">적용</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const imageInput = document.querySelector("#imageInput");
+      const rowsInput = document.querySelector("#rowsInput");
+      const colsInput = document.querySelector("#colsInput");
+      const colorCountInput = document.querySelector("#colorCountInput");
+      const generateButton = document.querySelector("#generateButton");
+      const directionToggleButton = document.querySelector("#directionToggleButton");
+      const downloadButton = document.querySelector("#downloadButton");
+      const backButton = document.querySelector("#backButton");
+      const undoButton = document.querySelector("#undoButton");
+      const resetButton = document.querySelector("#resetButton");
+      const selectionStatus = document.querySelector("#selectionStatus");
+      const palette = document.querySelector("#palette");
+      const originalFrame = document.querySelector("#originalFrame");
+      const resultFrame = document.querySelector("#resultFrame");
+      const sparkleLayer = document.querySelector("#sparkleLayer");
+      const colorEditorModal = document.querySelector("#colorEditorModal");
+      const colorEditorBackdrop = document.querySelector("#colorEditorBackdrop");
+      const colorEditorCloseButton = document.querySelector("#colorEditorCloseButton");
+      const colorEditorCancelButton = document.querySelector("#colorEditorCancelButton");
+      const colorEditorApplyButton = document.querySelector("#colorEditorApplyButton");
+      const colorEditorLabel = document.querySelector("#colorEditorLabel");
+      const colorEditorSv = document.querySelector("#colorEditorSv");
+      const colorEditorSvThumb = document.querySelector("#colorEditorSvThumb");
+      const colorEditorHue = document.querySelector("#colorEditorHue");
+      const colorEditorHueThumb = document.querySelector("#colorEditorHueThumb");
+      const colorEditorPreview = document.querySelector("#colorEditorPreview");
+      const colorEditorHexInput = document.querySelector("#colorEditorHexInput");
+
+      const state = {
+        image: null,
+        imageUrl: null,
+        resultUrl: null,
+        croppedCanvas: null,
+        cellData: null,
+        clusters: [],
+        autoLabels: [],
+        currentLabels: [],
+        counts: null,
+        selectedCell: null,
+        activePaletteLabel: null,
+        history: [],
+        renderMetrics: null,
+        isPainting: false,
+        startDirection: "ltr",
+        editingClusterLabel: null,
+        colorDraftRgb: [255, 255, 255],
+        colorDraftHsv: [0, 0, 1],
+        colorEditorDragTarget: null,
+      };
+
+      let lastSparkleAt = 0;
+
+      imageInput.addEventListener("change", handleImageSelect);
+      generateButton.addEventListener("click", handleGenerate);
+      directionToggleButton.addEventListener("click", toggleStartDirection);
+      backButton.addEventListener("click", handleBackNavigation);
+      undoButton.addEventListener("click", handleUndo);
+      resetButton.addEventListener("click", resetLabelsToAuto);
+      window.addEventListener("pointerup", stopPainting);
+      window.addEventListener("pointercancel", stopPainting);
+      window.addEventListener("pointermove", handleGlobalPointerMove);
+      window.addEventListener("pointerup", handleGlobalPointerUp);
+      window.addEventListener("pointercancel", handleGlobalPointerUp);
+      document.addEventListener("mousemove", handleSparkleTrail);
+      document.addEventListener("keydown", handleGlobalKeydown);
+      colorEditorBackdrop.addEventListener("click", closeColorEditor);
+      colorEditorCloseButton.addEventListener("click", closeColorEditor);
+      colorEditorCancelButton.addEventListener("click", closeColorEditor);
+      colorEditorApplyButton.addEventListener("click", applyClusterColorEdit);
+      colorEditorHexInput.addEventListener("input", handleColorEditorHexInput);
+      colorEditorSv.addEventListener("pointerdown", (event) => beginColorEditorDrag("sv", event));
+      colorEditorHue.addEventListener("pointerdown", (event) => beginColorEditorDrag("hue", event));
+
+      async function handleImageSelect(event) {
+        const [file] = event.target.files ?? [];
+
+        clearResult();
+
+        if (!file) {
+          state.image = null;
+          renderOriginalEmpty();
+          return;
+        }
+
+        const objectUrl = URL.createObjectURL(file);
+
+        try {
+          const image = await loadImage(objectUrl);
+          cleanupObjectUrl(state.imageUrl);
+          state.imageUrl = objectUrl;
+          state.image = image;
+          renderOriginalPreview(objectUrl, image);
+        } catch (error) {
+          cleanupObjectUrl(objectUrl);
+          state.image = null;
+          renderOriginalEmpty();
+          console.error(error);
+        }
+      }
+
+      function loadImage(source) {
+        return new Promise((resolve, reject) => {
+          const image = new Image();
+          image.onload = () => resolve(image);
+          image.onerror = () => reject(new Error("이미지를 불러오지 못했습니다."));
+          image.src = source;
+        });
+      }
+
+      function handleGenerate() {
+        try {
+          if (!state.image) {
+            throw new Error("도안 이미지를 먼저 업로드해 주세요.");
+          }
+
+          const rows = parsePositiveInt(rowsInput.value, "rows");
+          const cols = parsePositiveInt(colsInput.value, "cols");
+          const colorCount = parseOptionalPositiveInt(colorCountInput.value, "color_count");
+          const threshold = 30;
+          const paddingRatio = 0.18;
+
+          generateButton.disabled = true;
+
+          window.requestAnimationFrame(() => {
+            try {
+              const sourceCanvas = drawImageToCanvas(state.image);
+              const gridBounds = detectGridBounds(sourceCanvas);
+              const croppedCanvas = cropCanvas(sourceCanvas, gridBounds);
+              const cellData = extractCellData(croppedCanvas, rows, cols, paddingRatio);
+              const clusters = colorCount
+                ? assignColorLabelsWithKMeans(cellData, colorCount)
+                : assignColorLabelsByThreshold(cellData, threshold);
+
+              state.croppedCanvas = croppedCanvas;
+              state.cellData = cellData;
+              state.clusters = clusters;
+              state.autoLabels = extractLabelMatrix(cellData);
+              state.currentLabels = cloneLabelMatrix(state.autoLabels);
+              state.selectedCell = null;
+              state.activePaletteLabel = null;
+              state.history = [];
+              state.startDirection = "ltr";
+
+              refreshResultView();
+            } catch (error) {
+              clearResult();
+              console.error(error);
+            } finally {
+              generateButton.disabled = false;
+            }
+          });
+        } catch (error) {
+          console.error(error);
+        }
+      }
+
+      function parsePositiveInt(rawValue, fieldName) {
+        const value = Number.parseInt(rawValue, 10);
+        if (!Number.isInteger(value) || value < 1) {
+          throw new Error(`${fieldName}는 1 이상의 정수여야 합니다.`);
+        }
+        return value;
+      }
+
+      function parseOptionalPositiveInt(rawValue, fieldName) {
+        const trimmed = String(rawValue ?? "").trim();
+        if (!trimmed) {
+          return null;
+        }
+
+        const value = Number.parseInt(trimmed, 10);
+        if (!Number.isInteger(value) || value < 1) {
+          throw new Error(`${fieldName}는 비워두거나 1 이상의 정수여야 합니다.`);
+        }
+        return value;
+      }
+
+      function drawImageToCanvas(image) {
+        const canvas = document.createElement("canvas");
+        canvas.width = image.naturalWidth;
+        canvas.height = image.naturalHeight;
+        const context = canvas.getContext("2d", { willReadFrequently: true });
+        context.drawImage(image, 0, 0);
+        return canvas;
+      }
+
+      function detectGridBounds(canvas) {
+        const context = canvas.getContext("2d", { willReadFrequently: true });
+        const { width, height } = canvas;
+        const { data } = context.getImageData(0, 0, width, height);
+
+        const rowScores = [];
+        for (let y = 0; y < height; y += 1) {
+          let darkPixels = 0;
+          for (let x = 0; x < width; x += 1) {
+            const offset = (y * width + x) * 4;
+            if (getLuminance(data[offset], data[offset + 1], data[offset + 2]) < 190) {
+              darkPixels += 1;
+            }
+          }
+          rowScores.push(darkPixels / width);
+        }
+
+        const colScores = [];
+        for (let x = 0; x < width; x += 1) {
+          let darkPixels = 0;
+          for (let y = 0; y < height; y += 1) {
+            const offset = (y * width + x) * 4;
+            if (getLuminance(data[offset], data[offset + 1], data[offset + 2]) < 190) {
+              darkPixels += 1;
+            }
+          }
+          colScores.push(darkPixels / height);
+        }
+
+        const rowBand = findDenseBand(rowScores);
+        const colBand = findDenseBand(colScores);
+
+        if (!rowBand || !colBand) {
+          return { left: 0, top: 0, right: width, bottom: height };
+        }
+
+        const [top, bottom] = rowBand;
+        const [left, right] = colBand;
+
+        if (right - left < width * 0.25 || bottom - top < height * 0.25) {
+          return { left: 0, top: 0, right: width, bottom: height };
+        }
+
+        return {
+          left: Math.max(0, left),
+          top: Math.max(0, top),
+          right: Math.min(width, right + 1),
+          bottom: Math.min(height, bottom + 1),
+        };
+      }
+
+      function findDenseBand(scores) {
+        if (!scores.length) {
+          return null;
+        }
+
+        const maxScore = Math.max(...scores);
+        if (maxScore <= 0) {
+          return null;
+        }
+
+        const threshold = Math.max(0.14, maxScore * 0.55);
+        const indices = scores
+          .map((score, index) => (score >= threshold ? index : -1))
+          .filter((index) => index >= 0);
+
+        if (indices.length < 2) {
+          return null;
+        }
+
+        return [
+          Math.max(0, indices[0] - 2),
+          Math.min(scores.length - 1, indices[indices.length - 1] + 2),
+        ];
+      }
+
+      function cropCanvas(sourceCanvas, bounds) {
+        const width = Math.max(1, bounds.right - bounds.left);
+        const height = Math.max(1, bounds.bottom - bounds.top);
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const context = canvas.getContext("2d", { willReadFrequently: true });
+        context.drawImage(
+          sourceCanvas,
+          bounds.left,
+          bounds.top,
+          width,
+          height,
+          0,
+          0,
+          width,
+          height
+        );
+        return canvas;
+      }
+
+      function extractCellData(canvas, rows, cols, paddingRatio) {
+        const context = canvas.getContext("2d", { willReadFrequently: true });
+        const { width, height } = canvas;
+        const { data } = context.getImageData(0, 0, width, height);
+        const effectivePaddingRatio = Math.max(0.16, Math.min(0.45, paddingRatio));
+        const cellData = [];
+
+        for (let row = 0; row < rows; row += 1) {
+          const rowItems = [];
+          for (let col = 0; col < cols; col += 1) {
+            const bounds = computeCellBounds(width, height, row, col, rows, cols);
+            const samples = sampleCellPixels(data, width, bounds, effectivePaddingRatio);
+            const dominantColor = computeDominantColor(samples);
+            const avgColor = computeAverageColor(samples);
+            const labColor = rgbToLab(avgColor);
+
+            rowItems.push({
+              avgColor,
+              dominantColor,
+              labColor,
+              colorLabel: -1,
+              representativeColor: dominantColor,
+            });
+          }
+          cellData.push(rowItems);
+        }
+
+        return cellData;
+      }
+
+      function computeCellBounds(imageWidth, imageHeight, row, col, rows, cols) {
+        const left = Math.round((col * imageWidth) / cols);
+        const right = Math.round(((col + 1) * imageWidth) / cols);
+        const top = Math.round((row * imageHeight) / rows);
+        const bottom = Math.round(((row + 1) * imageHeight) / rows);
+        return { left, top, right, bottom };
+      }
+
+      function sampleCellPixels(data, imageWidth, bounds, paddingRatio) {
+        const cellWidth = Math.max(1, bounds.right - bounds.left);
+        const cellHeight = Math.max(1, bounds.bottom - bounds.top);
+        const padX = Math.floor(cellWidth * paddingRatio);
+        const padY = Math.floor(cellHeight * paddingRatio);
+        const innerLeft = Math.min(bounds.left + padX, bounds.right - 1);
+        const innerTop = Math.min(bounds.top + padY, bounds.bottom - 1);
+        const innerRight = Math.max(innerLeft + 1, bounds.right - padX);
+        const innerBottom = Math.max(innerTop + 1, bounds.bottom - padY);
+        const centerX = (innerLeft + innerRight) / 2;
+        const centerY = (innerTop + innerBottom) / 2;
+        const radiusX = Math.max(1, (innerRight - innerLeft) * 0.42);
+        const radiusY = Math.max(1, (innerBottom - innerTop) * 0.42);
+        const samples = [];
+
+        for (let y = innerTop; y < innerBottom; y += 1) {
+          for (let x = innerLeft; x < innerRight; x += 1) {
+            const normalizedX = (x + 0.5 - centerX) / radiusX;
+            const normalizedY = (y + 0.5 - centerY) / radiusY;
+
+            if (normalizedX * normalizedX + normalizedY * normalizedY > 1) {
+              continue;
+            }
+
+            const offset = (y * imageWidth + x) * 4;
+            const color = [data[offset], data[offset + 1], data[offset + 2]];
+            const luminance = getLuminance(color[0], color[1], color[2]);
+            const saturation = rgbToHsv(color)[1];
+
+            if (luminance < 28) {
+              continue;
+            }
+
+            samples.push({
+              color,
+              weight: saturation < 0.08 ? 0.35 : 1,
+            });
+          }
+        }
+
+        if (samples.length === 0) {
+          return [{ color: [255, 255, 255], weight: 1 }];
+        }
+
+        return samples;
+      }
+
+      function computeAverageColor(samples) {
+        let red = 0;
+        let green = 0;
+        let blue = 0;
+        let totalWeight = 0;
+
+        samples.forEach((sample) => {
+          red += sample.color[0] * sample.weight;
+          green += sample.color[1] * sample.weight;
+          blue += sample.color[2] * sample.weight;
+          totalWeight += sample.weight;
+        });
+
+        if (totalWeight === 0) {
+          return [255, 255, 255];
+        }
+
+        return [
+          Math.round(red / totalWeight),
+          Math.round(green / totalWeight),
+          Math.round(blue / totalWeight),
+        ];
+      }
+
+      function computeDominantColor(samples) {
+        const buckets = new Map();
+
+        samples.forEach((sample) => {
+          const key = quantizeColor(sample.color).join(",");
+          const current = buckets.get(key) ?? {
+            weight: 0,
+            red: 0,
+            green: 0,
+            blue: 0,
+          };
+
+          current.weight += sample.weight;
+          current.red += sample.color[0] * sample.weight;
+          current.green += sample.color[1] * sample.weight;
+          current.blue += sample.color[2] * sample.weight;
+          buckets.set(key, current);
+        });
+
+        let best = null;
+
+        buckets.forEach((bucket) => {
+          if (!best || bucket.weight > best.weight) {
+            best = bucket;
+          }
+        });
+
+        if (!best || best.weight === 0) {
+          return [255, 255, 255];
+        }
+
+        return [
+          Math.round(best.red / best.weight),
+          Math.round(best.green / best.weight),
+          Math.round(best.blue / best.weight),
+        ];
+      }
+
+      function quantizeColor(color) {
+        const step = 24;
+        return color.map((channel) => Math.round(channel / step) * step);
+      }
+
+      function assignColorLabelsByThreshold(cellData, mergeThreshold) {
+        const clusters = [];
+
+        cellData.flat().forEach((cell) => {
+          let bestCluster = null;
+          let bestDistance = Infinity;
+
+          clusters.forEach((cluster) => {
+            const distance = labDistance(cell.labColor, cluster.lab);
+            if (distance < bestDistance) {
+              bestDistance = distance;
+              bestCluster = cluster;
+            }
+          });
+
+          if (!bestCluster || bestDistance > mergeThreshold) {
+            const cluster = {
+              id: clusters.length,
+              count: 1,
+              lab: [...cell.labColor],
+              color: [...cell.avgColor],
+            };
+            clusters.push(cluster);
+            cell.colorLabel = cluster.id;
+            cell.representativeColor = cluster.color.map((value) => Math.round(value));
+            return;
+          }
+
+          bestCluster.lab = averageVector(bestCluster.lab, cell.labColor, bestCluster.count);
+          bestCluster.color = averageVector(bestCluster.color, cell.avgColor, bestCluster.count);
+          bestCluster.count += 1;
+          cell.colorLabel = bestCluster.id;
+          cell.representativeColor = bestCluster.color.map((value) => Math.round(value));
+        });
+
+        const normalizedClusters = clusters.map((cluster) => ({
+          id: cluster.id,
+          lab: cluster.lab,
+          color: cluster.color.map((value) => Math.round(value)),
+        }));
+
+        propagateRepresentativeColors(cellData, normalizedClusters);
+        return normalizedClusters;
+      }
+
+      function assignColorLabelsWithKMeans(cellData, colorCount) {
+        const cells = cellData.flat();
+
+        if (colorCount > cells.length) {
+          throw new Error(`color_count는 전체 칸 수(${cells.length})보다 클 수 없습니다.`);
+        }
+
+        const centroids = initializeKMeansCentroids(cells, colorCount);
+        let assignments = new Array(cells.length).fill(0);
+
+        for (let iteration = 0; iteration < 18; iteration += 1) {
+          let changed = false;
+
+          cells.forEach((cell, index) => {
+            let bestCluster = 0;
+            let bestDistance = Infinity;
+
+            centroids.forEach((centroid, centroidIndex) => {
+              const distance = labDistance(cell.labColor, centroid.lab);
+              if (distance < bestDistance) {
+                bestDistance = distance;
+                bestCluster = centroidIndex;
+              }
+            });
+
+            if (assignments[index] !== bestCluster) {
+              assignments[index] = bestCluster;
+              changed = true;
+            }
+          });
+
+          const nextCentroids = Array.from({ length: colorCount }, (_, clusterIndex) => {
+            const members = cells.filter((_, index) => assignments[index] === clusterIndex);
+
+            if (members.length === 0) {
+              return centroids[clusterIndex];
+            }
+
+            return {
+              lab: averageMembers(members, "labColor"),
+              color: averageMembers(members, "avgColor"),
+            };
+          });
+
+          centroids.splice(0, centroids.length, ...nextCentroids);
+
+          if (!changed && iteration > 0) {
+            break;
+          }
+        }
+
+        const clusters = centroids.map((centroid, index) => ({
+          id: index,
+          lab: centroid.lab,
+          color: centroid.color.map((value) => Math.round(value)),
+        }));
+
+        cells.forEach((cell, index) => {
+          cell.colorLabel = assignments[index];
+          cell.representativeColor = clusters[assignments[index]].color;
+        });
+
+        return clusters;
+      }
+
+      function initializeKMeansCentroids(cells, colorCount) {
+        const centroids = [
+          {
+            lab: [...cells[0].labColor],
+            color: [...cells[0].avgColor],
+          },
+        ];
+
+        while (centroids.length < colorCount) {
+          let bestCell = null;
+          let bestDistance = -Infinity;
+
+          cells.forEach((cell) => {
+            const nearestDistance = Math.min(
+              ...centroids.map((centroid) => labDistance(cell.labColor, centroid.lab))
+            );
+
+            if (nearestDistance > bestDistance) {
+              bestDistance = nearestDistance;
+              bestCell = cell;
+            }
+          });
+
+          if (!bestCell) {
+            bestCell = cells[centroids.length % cells.length];
+          }
+
+          centroids.push({
+            lab: [...bestCell.labColor],
+            color: [...bestCell.avgColor],
+          });
+        }
+
+        return centroids;
+      }
+
+      function averageMembers(members, key) {
+        const length = members[0][key].length;
+        const sum = new Array(length).fill(0);
+
+        members.forEach((member) => {
+          member[key].forEach((value, index) => {
+            sum[index] += value;
+          });
+        });
+
+        return sum.map((value) => value / members.length);
+      }
+
+      function propagateRepresentativeColors(cellData, clusters) {
+        const clusterMap = new Map(clusters.map((cluster) => [cluster.id, cluster.color]));
+
+        cellData.flat().forEach((cell) => {
+          cell.representativeColor = clusterMap.get(cell.colorLabel) ?? cell.avgColor;
+        });
+      }
+
+      function averageVector(current, incoming, currentCount) {
+        return current.map((value, index) => (
+          (value * currentCount + incoming[index]) / (currentCount + 1)
+        ));
+      }
+
+      function labDistance(labA, labB) {
+        return Math.sqrt(
+          (labA[0] - labB[0]) ** 2 +
+          (labA[1] - labB[1]) ** 2 +
+          (labA[2] - labB[2]) ** 2
+        );
+      }
+
+      function rgbToLab(color) {
+        const [red, green, blue] = color.map((channel) => channel / 255);
+        const linear = [red, green, blue].map((value) =>
+          value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4
+        );
+
+        const x = (linear[0] * 0.4124 + linear[1] * 0.3576 + linear[2] * 0.1805) / 0.95047;
+        const y = (linear[0] * 0.2126 + linear[1] * 0.7152 + linear[2] * 0.0722) / 1.0;
+        const z = (linear[0] * 0.0193 + linear[1] * 0.1192 + linear[2] * 0.9505) / 1.08883;
+
+        const transform = (value) =>
+          value > 0.008856 ? value ** (1 / 3) : 7.787 * value + 16 / 116;
+
+        const fx = transform(x);
+        const fy = transform(y);
+        const fz = transform(z);
+
+        return [
+          116 * fy - 16,
+          500 * (fx - fy),
+          200 * (fy - fz),
+        ];
+      }
+
+      function rgbToHsv(color) {
+        const [r, g, b] = color.map((channel) => channel / 255);
+        const max = Math.max(r, g, b);
+        const min = Math.min(r, g, b);
+        const delta = max - min;
+        const saturation = max === 0 ? 0 : delta / max;
+        const hue = delta === 0
+          ? 0
+          : max === r
+            ? ((g - b) / delta) % 6
+            : max === g
+              ? (b - r) / delta + 2
+              : (r - g) / delta + 4;
+
+        return [hue * 60, saturation, max];
+      }
+
+      function hsvToRgb(hue, saturation, value) {
+        const safeHue = ((hue % 360) + 360) % 360;
+        const chroma = value * saturation;
+        const hueSegment = safeHue / 60;
+        const x = chroma * (1 - Math.abs((hueSegment % 2) - 1));
+        let rgbPrime = [0, 0, 0];
+
+        if (hueSegment >= 0 && hueSegment < 1) {
+          rgbPrime = [chroma, x, 0];
+        } else if (hueSegment < 2) {
+          rgbPrime = [x, chroma, 0];
+        } else if (hueSegment < 3) {
+          rgbPrime = [0, chroma, x];
+        } else if (hueSegment < 4) {
+          rgbPrime = [0, x, chroma];
+        } else if (hueSegment < 5) {
+          rgbPrime = [x, 0, chroma];
+        } else {
+          rgbPrime = [chroma, 0, x];
+        }
+
+        const match = value - chroma;
+        return rgbPrime.map((channel) => Math.round((channel + match) * 255));
+      }
+
+      function rgbToHex(color) {
+        return `#${color.map((channel) => channel.toString(16).padStart(2, "0")).join("")}`.toUpperCase();
+      }
+
+      function hexToRgb(hex) {
+        const normalized = String(hex).trim().replace(/^#/, "");
+
+        if (!/^[0-9A-Fa-f]{6}$/.test(normalized)) {
+          return null;
+        }
+
+        return [
+          Number.parseInt(normalized.slice(0, 2), 16),
+          Number.parseInt(normalized.slice(2, 4), 16),
+          Number.parseInt(normalized.slice(4, 6), 16),
+        ];
+      }
+
+      function clamp(value, min, max) {
+        return Math.min(max, Math.max(min, value));
+      }
+
+      function isRowLeftToRight(rowFromBottom, startDirection = "ltr") {
+        const startsLeftToRight = startDirection !== "rtl";
+        return rowFromBottom % 2 === 0 ? startsLeftToRight : !startsLeftToRight;
+      }
+
+      function computeCounts(labelMatrix, startDirection = "ltr") {
+        const rows = labelMatrix.length;
+        const cols = rows > 0 ? labelMatrix[0].length : 0;
+        const counts = Array.from({ length: rows }, () => Array(cols).fill(0));
+
+        for (let rowFromBottom = 0; rowFromBottom < rows; rowFromBottom += 1) {
+          const imageRow = rows - 1 - rowFromBottom;
+          const isLeftToRight = isRowLeftToRight(rowFromBottom, startDirection);
+          const order = isLeftToRight
+            ? Array.from({ length: cols }, (_, col) => col)
+            : Array.from({ length: cols }, (_, col) => cols - 1 - col);
+
+          let previousColorLabel = null;
+          let currentCount = 0;
+
+          order.forEach((col) => {
+            const colorLabel = labelMatrix[imageRow][col];
+
+            if (previousColorLabel !== null && previousColorLabel === colorLabel) {
+              currentCount += 1;
+            } else {
+              currentCount = 1;
+            }
+
+            counts[imageRow][col] = currentCount;
+            previousColorLabel = colorLabel;
+          });
+        }
+
+        return counts;
+      }
+
+      function getLuminance(red, green, blue) {
+        return 0.299 * red + 0.587 * green + 0.114 * blue;
+      }
+
+      function chooseTextColor(color) {
+        return getLuminance(color[0], color[1], color[2]) >= 160 ? "#000000" : "#ffffff";
+      }
+
+      function extractLabelMatrix(cellData) {
+        return cellData.map((row) => row.map((cell) => cell.colorLabel));
+      }
+
+      function cloneLabelMatrix(labelMatrix) {
+        return labelMatrix.map((row) => [...row]);
+      }
+
+      function syncLabelsToCellData() {
+        if (!state.cellData) {
+          return;
+        }
+
+        state.cellData.forEach((row, rowIndex) => {
+          row.forEach((cell, colIndex) => {
+            const label = state.currentLabels[rowIndex][colIndex];
+            cell.colorLabel = label;
+            cell.representativeColor = state.clusters[label]?.color ?? cell.avgColor;
+          });
+        });
+      }
+
+      function buildRenderMetrics(gridWidth, gridHeight, rows, cols, options = {}) {
+        const {
+          showAxisLabels = true,
+          rotateRowLabels = true,
+        } = options;
+
+        const sampleBounds = computeCellBounds(gridWidth, gridHeight, 0, 0, rows, cols);
+        const sampleCellWidth = Math.max(1, sampleBounds.right - sampleBounds.left);
+        const sampleCellHeight = Math.max(1, sampleBounds.bottom - sampleBounds.top);
+        const cellFontSize = Math.max(12, Math.floor(Math.min(sampleCellWidth, sampleCellHeight) * 0.42));
+        const axisFontSize = Math.max(12, Math.floor(Math.min(sampleCellWidth, sampleCellHeight) * 0.32));
+        const gridLineWidth = Math.max(1, Math.floor(Math.min(sampleCellWidth, sampleCellHeight) * 0.04));
+        const outerPadding = Math.max(12, Math.floor(Math.min(sampleCellWidth, sampleCellHeight) * 0.35));
+        const axisGap = Math.max(10, Math.floor(axisFontSize * 0.9));
+        const leftAxisBand = showAxisLabels
+          ? rotateRowLabels
+            ? Math.ceil(axisFontSize * 1.9 + outerPadding)
+            : Math.ceil(axisFontSize * 2.6 + outerPadding)
+          : 0;
+        const bottomAxisBand = showAxisLabels
+          ? Math.ceil(axisFontSize * 2.3 + outerPadding)
+          : 0;
+        const gridOriginX = outerPadding + leftAxisBand;
+        const gridOriginY = outerPadding;
+
+        return {
+          rows,
+          cols,
+          gridWidth,
+          gridHeight,
+          sampleCellWidth,
+          sampleCellHeight,
+          cellFontSize,
+          axisFontSize,
+          gridLineWidth,
+          outerPadding,
+          axisGap,
+          leftAxisBand,
+          bottomAxisBand,
+          gridOriginX,
+          gridOriginY,
+          canvasWidth: gridOriginX + gridWidth + outerPadding,
+          canvasHeight: gridOriginY + gridHeight + bottomAxisBand + outerPadding,
+          showAxisLabels,
+          rotateRowLabels,
+        };
+      }
+
+      function renderPattern(cellData, counts, gridWidth, gridHeight, options = {}) {
+        if (!cellData.length || !cellData[0].length) {
+          throw new Error("렌더링할 셀 데이터가 비어 있습니다.");
+        }
+
+        const rows = cellData.length;
+        const cols = cellData[0].length;
+        const {
+          showAxisLabels = true,
+          rotateRowLabels = true,
+          backgroundColor = "#ffffff",
+          gridColor = "rgb(74, 85, 104)",
+          selectedCell = null,
+        } = options;
+
+        const metrics = buildRenderMetrics(gridWidth, gridHeight, rows, cols, {
+          showAxisLabels,
+          rotateRowLabels,
+        });
+
+        const canvas = document.createElement("canvas");
+        canvas.width = metrics.canvasWidth;
+        canvas.height = metrics.canvasHeight;
+        const context = canvas.getContext("2d");
+        context.fillStyle = backgroundColor;
+        context.fillRect(0, 0, canvas.width, canvas.height);
+
+        for (let row = 0; row < rows; row += 1) {
+          for (let col = 0; col < cols; col += 1) {
+            const bounds = computeCellBounds(gridWidth, gridHeight, row, col, rows, cols);
+            const fillColor = cellData[row][col].representativeColor;
+            const label = String(counts[row][col]);
+
+            context.fillStyle = `rgb(${fillColor[0]}, ${fillColor[1]}, ${fillColor[2]})`;
+            context.fillRect(
+              metrics.gridOriginX + bounds.left,
+              metrics.gridOriginY + bounds.top,
+              bounds.right - bounds.left,
+              bounds.bottom - bounds.top
+            );
+
+            context.font = `700 ${metrics.cellFontSize}px "LeeSeoyun(Mac)", "Apple SD Gothic Neo", "Pretendard", sans-serif`;
+            context.textAlign = "center";
+            context.textBaseline = "middle";
+            context.fillStyle = chooseTextColor(fillColor);
+            context.fillText(
+              label,
+              metrics.gridOriginX + (bounds.left + bounds.right) / 2,
+              metrics.gridOriginY + (bounds.top + bounds.bottom) / 2
+            );
+          }
+        }
+
+        context.strokeStyle = gridColor;
+        context.lineWidth = metrics.gridLineWidth;
+
+        for (let row = 0; row <= rows; row += 1) {
+          const y = metrics.gridOriginY + Math.round((row * gridHeight) / rows);
+          context.beginPath();
+          context.moveTo(metrics.gridOriginX, y);
+          context.lineTo(metrics.gridOriginX + gridWidth, y);
+          context.stroke();
+        }
+
+        for (let col = 0; col <= cols; col += 1) {
+          const x = metrics.gridOriginX + Math.round((col * gridWidth) / cols);
+          context.beginPath();
+          context.moveTo(x, metrics.gridOriginY);
+          context.lineTo(x, metrics.gridOriginY + gridHeight);
+          context.stroke();
+        }
+
+        if (showAxisLabels) {
+          context.fillStyle = "#4b4039";
+          context.font = `700 ${metrics.axisFontSize}px "LeeSeoyun(Mac)", "Apple SD Gothic Neo", "Pretendard", sans-serif`;
+          context.textAlign = "center";
+          context.textBaseline = "middle";
+
+          for (let col = 0; col < cols; col += 1) {
+            const bounds = computeCellBounds(gridWidth, gridHeight, 0, col, rows, cols);
+            const centerX = metrics.gridOriginX + (bounds.left + bounds.right) / 2;
+            const labelY = metrics.gridOriginY + gridHeight + metrics.axisGap + metrics.axisFontSize * 0.5;
+            context.fillText(String(col + 1), centerX, labelY);
+          }
+
+          for (let row = 0; row < rows; row += 1) {
+            const bounds = computeCellBounds(gridWidth, gridHeight, row, 0, rows, cols);
+            const centerY = metrics.gridOriginY + (bounds.top + bounds.bottom) / 2;
+            const rowNumber = rows - row;
+
+            if (rotateRowLabels) {
+              context.save();
+              context.translate(metrics.gridOriginX - metrics.axisGap - metrics.axisFontSize * 0.5, centerY);
+              context.rotate(-Math.PI / 2);
+              context.fillText(String(rowNumber), 0, 0);
+              context.restore();
+            } else {
+              context.fillText(
+                String(rowNumber),
+                metrics.gridOriginX - metrics.axisGap - metrics.axisFontSize * 0.6,
+                centerY
+              );
+            }
+          }
+        }
+
+        if (selectedCell) {
+          const bounds = computeCellBounds(gridWidth, gridHeight, selectedCell.row, selectedCell.col, rows, cols);
+          const x = metrics.gridOriginX + bounds.left;
+          const y = metrics.gridOriginY + bounds.top;
+          const width = bounds.right - bounds.left;
+          const height = bounds.bottom - bounds.top;
+
+          context.fillStyle = "rgba(255, 255, 255, 0.16)";
+          context.fillRect(x, y, width, height);
+          context.strokeStyle = "#ff9f1c";
+          context.lineWidth = Math.max(2, Math.floor(Math.min(width, height) * 0.12));
+          context.strokeRect(x + 1, y + 1, Math.max(0, width - 2), Math.max(0, height - 2));
+        }
+
+        return { canvas, metrics };
+      }
+
+      function refreshResultView() {
+        if (!state.cellData || !state.croppedCanvas) {
+          clearResult();
+          return;
+        }
+
+        syncLabelsToCellData();
+        state.counts = computeCounts(state.currentLabels, state.startDirection);
+
+        const renderData = renderPattern(
+          state.cellData,
+          state.counts,
+          state.croppedCanvas.width,
+          state.croppedCanvas.height,
+          {
+            showAxisLabels: true,
+            rotateRowLabels: true,
+            selectedCell: state.selectedCell,
+          }
+        );
+
+        state.renderMetrics = renderData.metrics;
+        renderResultPreview(renderData.canvas);
+        renderPalette();
+        renderColorEditor();
+        updateSelectionStatus();
+        updateEditorButtons();
+        updateDirectionButton();
+      }
+
+      function updateDirectionButton() {
+        const startsLeftToRight = state.startDirection !== "rtl";
+        directionToggleButton.title = startsLeftToRight
+          ? "현재 1단은 왼쪽에서 오른쪽으로 진행돼요. 눌러서 반대로 바꿀 수 있어요."
+          : "현재 1단은 오른쪽에서 왼쪽으로 진행돼요. 눌러서 반대로 바꿀 수 있어요.";
+        directionToggleButton.setAttribute(
+          "aria-label",
+          startsLeftToRight
+            ? "현재 1단 시작 방향은 왼쪽에서 오른쪽입니다. 방향 바꾸기"
+            : "현재 1단 시작 방향은 오른쪽에서 왼쪽입니다. 방향 바꾸기",
+        );
+      }
+
+      function toggleStartDirection() {
+        state.startDirection = state.startDirection === "ltr" ? "rtl" : "ltr";
+
+        if (!state.cellData || !state.croppedCanvas) {
+          updateDirectionButton();
+          return;
+        }
+
+        refreshResultView();
+      }
+
+      function renderPalette() {
+        palette.innerHTML = "";
+
+        if (!state.clusters.length) {
+          palette.className = "palette palette-empty";
+          palette.innerHTML = '<div class="palette-placeholder">아직 대표색 팔레트가 없습니다.</div>';
+          return;
+        }
+
+        palette.className = "palette";
+        const selectedLabel = state.selectedCell
+          ? state.currentLabels[state.selectedCell.row][state.selectedCell.col]
+          : null;
+
+        state.clusters.forEach((cluster, index) => {
+          const entry = document.createElement("div");
+          entry.className = "palette-entry";
+
+          if (state.editingClusterLabel === index) {
+            entry.classList.add("is-editing");
+          }
+
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "palette-chip";
+          button.dataset.label = String(index);
+          button.title = `색 ${index + 1}`;
+          button.setAttribute("aria-label", `대표색 ${index + 1} 선택`);
+
+          if (state.activePaletteLabel === index) {
+            button.classList.add("is-active");
+          }
+
+          if (selectedLabel === index) {
+            button.classList.add("is-current");
+          }
+
+          button.innerHTML = `
+            <span class="palette-chip__swatch" style="background: rgb(${cluster.color[0]}, ${cluster.color[1]}, ${cluster.color[2]});"></span>
+          `;
+          button.addEventListener("click", () => handlePalettePick(index));
+
+          const editButton = document.createElement("button");
+          editButton.type = "button";
+          editButton.className = "palette-edit-button";
+          editButton.title = `대표색 ${index + 1} 색상 변경`;
+          editButton.setAttribute("aria-label", `대표색 ${index + 1} 색상 변경`);
+          editButton.textContent = "✎";
+          editButton.addEventListener("click", (event) => {
+            event.stopPropagation();
+            openColorEditor(index);
+          });
+
+          entry.appendChild(button);
+          entry.appendChild(editButton);
+          palette.appendChild(entry);
+        });
+      }
+
+      function handlePalettePick(label) {
+        if (!state.clusters.length) {
+          return;
+        }
+
+        if (state.activePaletteLabel === label) {
+          state.activePaletteLabel = null;
+          renderPalette();
+          updateSelectionStatus();
+          return;
+        }
+
+        state.activePaletteLabel = label;
+
+        if (state.selectedCell) {
+          applyLabelChange(state.selectedCell.row, state.selectedCell.col, label);
+        } else {
+          renderPalette();
+          updateSelectionStatus();
+        }
+      }
+
+      function openColorEditor(label) {
+        const cluster = state.clusters[label];
+        if (!cluster) {
+          return;
+        }
+
+        state.editingClusterLabel = label;
+        state.colorDraftRgb = [...cluster.color];
+        state.colorDraftHsv = rgbToHsv(cluster.color);
+        state.colorDraftHex = rgbToHex(cluster.color);
+        renderPalette();
+        renderColorEditor();
+      }
+
+      function closeColorEditor() {
+        state.editingClusterLabel = null;
+        state.colorEditorDragTarget = null;
+        renderPalette();
+        renderColorEditor();
+      }
+
+      function renderColorEditor() {
+        const isOpen = state.editingClusterLabel !== null;
+        colorEditorModal.hidden = !isOpen;
+
+        if (!isOpen) {
+          return;
+        }
+
+        const label = state.editingClusterLabel;
+        const rgb = state.colorDraftRgb;
+        const [hue, saturation, value] = state.colorDraftHsv;
+        const pureHue = hsvToRgb(hue, 1, 1);
+
+        colorEditorLabel.textContent = `대표색 ${label + 1}의 색상을 바꾸고 있어요.`;
+        colorEditorPreview.style.background = `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
+        colorEditorHexInput.value = rgbToHex(rgb);
+        colorEditorSv.style.background = `rgb(${pureHue[0]}, ${pureHue[1]}, ${pureHue[2]})`;
+        colorEditorSvThumb.style.left = `${saturation * 100}%`;
+        colorEditorSvThumb.style.top = `${(1 - value) * 100}%`;
+        colorEditorHueThumb.style.left = `${(hue / 360) * 100}%`;
+      }
+
+      function beginColorEditorDrag(target, event) {
+        if (state.editingClusterLabel === null) {
+          return;
+        }
+
+        event.preventDefault();
+        state.colorEditorDragTarget = target;
+        updateColorDraftFromPointer(target, event);
+      }
+
+      function handleGlobalPointerMove(event) {
+        if (!state.colorEditorDragTarget) {
+          return;
+        }
+
+        event.preventDefault();
+        updateColorDraftFromPointer(state.colorEditorDragTarget, event);
+      }
+
+      function handleGlobalPointerUp() {
+        state.colorEditorDragTarget = null;
+      }
+
+      function updateColorDraftFromPointer(target, event) {
+        if (target === "sv") {
+          const rect = colorEditorSv.getBoundingClientRect();
+          const saturation = clamp((event.clientX - rect.left) / rect.width, 0, 1);
+          const value = clamp(1 - (event.clientY - rect.top) / rect.height, 0, 1);
+          state.colorDraftHsv = [state.colorDraftHsv[0], saturation, value];
+        } else if (target === "hue") {
+          const rect = colorEditorHue.getBoundingClientRect();
+          const hue = clamp((event.clientX - rect.left) / rect.width, 0, 1) * 360;
+          state.colorDraftHsv = [hue, state.colorDraftHsv[1], state.colorDraftHsv[2]];
+        }
+
+        state.colorDraftRgb = hsvToRgb(
+          state.colorDraftHsv[0],
+          state.colorDraftHsv[1],
+          state.colorDraftHsv[2]
+        );
+        renderColorEditor();
+      }
+
+      function handleColorEditorHexInput(event) {
+        const rgb = hexToRgb(event.target.value);
+        if (!rgb) {
+          return;
+        }
+
+        state.colorDraftRgb = rgb;
+        state.colorDraftHsv = rgbToHsv(rgb);
+        renderColorEditor();
+      }
+
+      function applyClusterColorEdit() {
+        if (state.editingClusterLabel === null) {
+          return;
+        }
+
+        const cluster = state.clusters[state.editingClusterLabel];
+        if (!cluster) {
+          closeColorEditor();
+          return;
+        }
+
+        cluster.color = [...state.colorDraftRgb];
+        cluster.lab = rgbToLab(cluster.color);
+        closeColorEditor();
+        refreshResultView();
+      }
+
+      function handleGlobalKeydown(event) {
+        if (event.key === "Escape" && state.editingClusterLabel !== null) {
+          closeColorEditor();
+        }
+      }
+
+      function handleResultPointerDown(event) {
+        const cell = getCellFromPointerEvent(event);
+        if (!cell) {
+          return;
+        }
+
+        event.preventDefault();
+
+        if (state.activePaletteLabel !== null) {
+          state.isPainting = true;
+          applyLabelChange(cell.row, cell.col, state.activePaletteLabel);
+        } else {
+          selectCell(cell.row, cell.col);
+        }
+      }
+
+      function handleResultPointerMove(event) {
+        if (!state.isPainting || state.activePaletteLabel === null) {
+          return;
+        }
+
+        const cell = getCellFromPointerEvent(event);
+        if (!cell) {
+          return;
+        }
+
+        event.preventDefault();
+
+        applyLabelChange(cell.row, cell.col, state.activePaletteLabel);
+      }
+
+      function stopPainting() {
+        state.isPainting = false;
+      }
+
+      function getCellFromPointerEvent(event) {
+        if (!state.renderMetrics) {
+          return null;
+        }
+
+        const canvas = event.currentTarget;
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+        const x = (event.clientX - rect.left) * scaleX;
+        const y = (event.clientY - rect.top) * scaleY;
+        const { rows, cols, gridWidth, gridHeight, gridOriginX, gridOriginY } = state.renderMetrics;
+
+        if (
+          x < gridOriginX ||
+          y < gridOriginY ||
+          x > gridOriginX + gridWidth ||
+          y > gridOriginY + gridHeight
+        ) {
+          return null;
+        }
+
+        for (let row = 0; row < rows; row += 1) {
+          for (let col = 0; col < cols; col += 1) {
+            const bounds = computeCellBounds(gridWidth, gridHeight, row, col, rows, cols);
+            const left = gridOriginX + bounds.left;
+            const right = gridOriginX + bounds.right;
+            const top = gridOriginY + bounds.top;
+            const bottom = gridOriginY + bounds.bottom;
+
+            if (x >= left && x <= right && y >= top && y <= bottom) {
+              return { row, col };
+            }
+          }
+        }
+
+        return null;
+      }
+
+      function selectCell(row, col) {
+        state.selectedCell = { row, col };
+        refreshResultView();
+      }
+
+      function applyLabelChange(row, col, nextLabel) {
+        const previousLabel = state.currentLabels[row][col];
+        state.selectedCell = { row, col };
+
+        if (previousLabel === nextLabel) {
+          refreshResultView();
+          return;
+        }
+
+        state.history.push({
+          row,
+          col,
+          from: previousLabel,
+          to: nextLabel,
+        });
+
+        state.currentLabels[row][col] = nextLabel;
+        refreshResultView();
+      }
+
+      function handleUndo() {
+        const lastChange = state.history.pop();
+
+        if (!lastChange) {
+          return;
+        }
+
+        state.currentLabels[lastChange.row][lastChange.col] = lastChange.from;
+        state.selectedCell = {
+          row: lastChange.row,
+          col: lastChange.col,
+        };
+        refreshResultView();
+      }
+
+      function resetLabelsToAuto() {
+        if (!state.autoLabels.length) {
+          return;
+        }
+
+        state.currentLabels = cloneLabelMatrix(state.autoLabels);
+        state.history = [];
+        state.selectedCell = null;
+        state.activePaletteLabel = null;
+        refreshResultView();
+      }
+
+      function updateSelectionStatus() {
+        if (!state.clusters.length || !state.currentLabels.length) {
+          selectionStatus.textContent = "숫자 생성을 완료하면 대표색 팔레트가 여기에 나타납니다.";
+          return;
+        }
+
+        if (!state.selectedCell) {
+          if (state.activePaletteLabel !== null) {
+            selectionStatus.textContent = `선택한 대표색은 색 ${state.activePaletteLabel + 1}입니다. 결과 이미지를 클릭하거나 드래그해서 칠해보세요.`;
+          } else {
+            selectionStatus.textContent = "결과 이미지에서 수정할 칸을 클릭한 뒤, 아래 대표색을 눌러 바꿔주세요.";
+          }
+          return;
+        }
+
+        const rowNumber = state.currentLabels.length - state.selectedCell.row;
+        const colNumber = state.selectedCell.col + 1;
+        const labelNumber = state.currentLabels[state.selectedCell.row][state.selectedCell.col] + 1;
+
+        if (state.activePaletteLabel !== null) {
+          selectionStatus.textContent = `${rowNumber}단 ${colNumber}칸이 선택되어 있고 현재 색 ${labelNumber}입니다. 선택한 대표색 ${state.activePaletteLabel + 1}로 바꾸거나 이어서 칠할 수 있어요.`;
+        } else {
+          selectionStatus.textContent = `${rowNumber}단 ${colNumber}칸이 선택되어 있고 현재 색 ${labelNumber}입니다. 아래 대표색을 눌러 이 칸의 라벨을 바꿔주세요.`;
+        }
+      }
+
+      function updateEditorButtons() {
+        const hasLabels = state.currentLabels.length > 0;
+        undoButton.disabled = state.history.length === 0;
+        resetButton.disabled = !hasLabels;
+      }
+
+      function renderOriginalPreview(src, image) {
+        originalFrame.innerHTML = "";
+        const img = document.createElement("img");
+        img.src = src;
+        img.alt = "원본 도안 이미지";
+        img.width = image.naturalWidth;
+        img.height = image.naturalHeight;
+        originalFrame.appendChild(img);
+      }
+
+      function renderOriginalEmpty() {
+        originalFrame.innerHTML = '<div class="empty-state">이미지를 업로드하면 여기에 원본이 표시됩니다.</div>';
+      }
+
+      function renderResultPreview(canvas) {
+        canvas.classList.add("result-canvas");
+        canvas.addEventListener("pointerdown", handleResultPointerDown);
+        canvas.addEventListener("pointermove", handleResultPointerMove);
+
+        resultFrame.innerHTML = "";
+        resultFrame.appendChild(canvas);
+
+        state.resultUrl = canvas.toDataURL("image/png");
+        downloadButton.href = state.resultUrl;
+        downloadButton.classList.remove("is-disabled");
+      }
+
+      function clearResult() {
+        state.resultUrl = null;
+        state.croppedCanvas = null;
+        state.cellData = null;
+        state.clusters = [];
+        state.autoLabels = [];
+        state.currentLabels = [];
+        state.counts = null;
+        state.selectedCell = null;
+        state.activePaletteLabel = null;
+        state.history = [];
+        state.renderMetrics = null;
+        state.isPainting = false;
+        state.startDirection = "ltr";
+        state.editingClusterLabel = null;
+        state.colorDraftRgb = [255, 255, 255];
+        state.colorDraftHsv = [0, 0, 1];
+        state.colorEditorDragTarget = null;
+
+        resultFrame.innerHTML = '<div class="empty-state">숫자 생성을 실행하면 여기에 결과가 표시됩니다.</div>';
+        palette.className = "palette palette-empty";
+        palette.innerHTML = '<div class="palette-placeholder">아직 대표색 팔레트가 없습니다.</div>';
+        selectionStatus.textContent = "숫자 생성을 완료하면 대표색 팔레트가 여기에 나타납니다.";
+        downloadButton.removeAttribute("href");
+        downloadButton.classList.add("is-disabled");
+        colorEditorModal.hidden = true;
+        updateEditorButtons();
+        updateDirectionButton();
+      }
+
+      function cleanupObjectUrl(url) {
+        if (url && url.startsWith("blob:")) {
+          URL.revokeObjectURL(url);
+        }
+      }
+
+      function handleSparkleTrail(event) {
+        if (!sparkleLayer) {
+          return;
+        }
+
+        if (window.matchMedia("(pointer: coarse)").matches) {
+          return;
+        }
+
+        const now = performance.now();
+        if (now - lastSparkleAt < 40) {
+          return;
+        }
+
+        if (Math.random() > 0.3) {
+          return;
+        }
+
+        lastSparkleAt = now;
+        createSparkle(event.clientX, event.clientY);
+      }
+
+      function createSparkle(x, y) {
+        const sparkle = document.createElement("div");
+        const size = 4 + Math.random() * 6;
+        const offsetX = (Math.random() - 0.5) * 14;
+        const offsetY = (Math.random() - 0.5) * 14;
+
+        sparkle.className = "sparkle";
+        sparkle.style.width = `${size}px`;
+        sparkle.style.height = `${size}px`;
+        sparkle.style.left = `${x + offsetX}px`;
+        sparkle.style.top = `${y + offsetY}px`;
+        sparkle.style.animationDuration = `${650 + Math.random() * 250}ms`;
+
+        sparkleLayer.appendChild(sparkle);
+        sparkle.addEventListener("animationend", () => sparkle.remove(), { once: true });
+      }
+
+      function handleBackNavigation() {
+        if (window.history.length > 1) {
+          window.history.back();
+        } else {
+          window.location.href = "./index.html";
+        }
+      }
+
+      renderOriginalEmpty();
+      clearResult();
+    </script>
+  </body>
+</html>

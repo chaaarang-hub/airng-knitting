@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>뜨개 도안 모음</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <div id="sparkleLayer" class="sparkle-layer" aria-hidden="true"></div>
+    <button id="backButton" class="floating-back-button" type="button" aria-label="뒤로가기">←</button>
+    <main class="shell">
+      <section class="hero">
+        <div class="hero-copy">
+          <div class="hero-text-block">
+            <p class="eyebrow">Knitting Pattern Gallery</p>
+            <h1>뜨개 도안 모음</h1>
+            <p class="hero-text">도안 폴더에 넣어둔 이미지를 한곳에 모아두고, 마음에 드는 도안을 바로 저장할 수 있어요.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel gallery-panel">
+        <div id="galleryGrid" class="gallery-grid"></div>
+      </section>
+    </main>
+
+    <script src="./patterns.js"></script>
+    <script>
+      const sparkleLayer = document.querySelector("#sparkleLayer");
+      const backButton = document.querySelector("#backButton");
+      const galleryGrid = document.querySelector("#galleryGrid");
+      const patternList = Array.isArray(window.PATTERN_LIST) ? window.PATTERN_LIST : [];
+
+      let lastSparkleAt = 0;
+
+      renderGallery();
+      backButton.addEventListener("click", handleBackNavigation);
+      document.addEventListener("mousemove", handleSparkleTrail);
+
+      function renderGallery() {
+        if (!patternList.length) {
+          galleryGrid.innerHTML = '<div class="gallery-empty">도안 폴더에 등록된 이미지가 아직 없어요.</div>';
+          return;
+        }
+
+        galleryGrid.innerHTML = patternList
+          .map((pattern) => `
+            <article class="gallery-card">
+              <a
+                class="gallery-download-chip"
+                href="${pattern.src}"
+                download="${buildDownloadName(pattern)}"
+                aria-label="${pattern.name} 다운로드"
+                title="${pattern.name} 다운로드"
+              >↓</a>
+              <div class="gallery-image-wrap">
+                <img class="gallery-image" src="${pattern.src}" alt="${pattern.name}" />
+              </div>
+            </article>
+          `)
+          .join("");
+      }
+
+      function buildDownloadName(pattern) {
+        const match = pattern.src.match(/\.[^.]+$/);
+        const extension = match ? match[0] : ".png";
+        return `${pattern.name}${extension}`;
+      }
+
+      function handleSparkleTrail(event) {
+        if (!sparkleLayer) {
+          return;
+        }
+
+        if (window.matchMedia("(pointer: coarse)").matches) {
+          return;
+        }
+
+        const now = performance.now();
+        if (now - lastSparkleAt < 40) {
+          return;
+        }
+
+        if (Math.random() > 0.3) {
+          return;
+        }
+
+        lastSparkleAt = now;
+        createSparkle(event.clientX, event.clientY);
+      }
+
+      function createSparkle(x, y) {
+        const sparkle = document.createElement("div");
+        const size = 4 + Math.random() * 6;
+        const offsetX = (Math.random() - 0.5) * 14;
+        const offsetY = (Math.random() - 0.5) * 14;
+
+        sparkle.className = "sparkle";
+        sparkle.style.width = `${size}px`;
+        sparkle.style.height = `${size}px`;
+        sparkle.style.left = `${x + offsetX}px`;
+        sparkle.style.top = `${y + offsetY}px`;
+        sparkle.style.animationDuration = `${650 + Math.random() * 250}ms`;
+
+        sparkleLayer.appendChild(sparkle);
+        sparkle.addEventListener("animationend", () => sparkle.remove(), { once: true });
+      }
+
+      function handleBackNavigation() {
+        if (window.history.length > 1) {
+          window.history.back();
+        } else {
+          window.location.href = "./index.html";
+        }
+      }
+    </script>
+  </body>
+</html>

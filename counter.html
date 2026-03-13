@@ -1,0 +1,1029 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>단수세기</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <div id="sparkleLayer" class="sparkle-layer" aria-hidden="true"></div>
+    <button id="backButton" class="floating-back-button" type="button" aria-label="뒤로가기">←</button>
+    <main class="shell">
+      <section class="hero">
+        <div class="hero-copy">
+          <div class="hero-text-block">
+            <p class="eyebrow">Knitting Row Counter</p>
+            <h1>단수세기</h1>
+            <p class="hero-text">직접 올린 도안 이미지로 현재 단을 차분하게 체크할 수 있어요.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="counter-toolbar">
+          <div class="field field-upload counter-upload">
+            <label for="counterImageInput">도안 이미지 업로드</label>
+            <input id="counterImageInput" type="file" accept=".png,.jpg,.jpeg,.webp" />
+          </div>
+        </div>
+        <p id="counterStatus" class="counter-status" aria-live="polite"></p>
+      </section>
+
+      <section id="row-progress-section" class="preview-grid counter-page-grid" hidden>
+        <article class="preview-card counter-card">
+          <div class="preview-head counter-head">
+            <div>
+              <h2>단수 진행표</h2>
+              <p id="counterSummary">이미지를 분석해서 단수 진행표를 준비하고 있어요.</p>
+            </div>
+
+            <div class="counter-color-picker">
+              <span class="counter-color-picker__label">완료 표시색</span>
+              <div id="counterColorPalette" class="counter-color-palette" aria-label="완료 표시색 선택"></div>
+            </div>
+          </div>
+
+          <div class="counter-adjust-panel">
+            <button id="counterAdjustRowsButton" class="button button-secondary counter-adjust-button" type="button">
+              단 수가 안맞아요 ㅠㅠ
+            </button>
+
+            <div id="counterAdjustRowsForm" class="counter-adjust-form" hidden>
+              <p class="counter-adjust-form__text">
+                자동 인식이 맞지 않으면 세로 단 수를 직접 입력해 다시 맞출 수 있어요.
+              </p>
+              <div class="counter-adjust-form__controls">
+                <div class="field counter-adjust-field">
+                  <label for="counterManualRowsInput">세로 단 수</label>
+                  <input id="counterManualRowsInput" type="number" min="1" step="1" inputmode="numeric" />
+                </div>
+                <div class="counter-adjust-form__actions">
+                  <button id="counterApplyRowsButton" class="button button-primary" type="button">적용</button>
+                  <button id="counterCancelRowsButton" class="button button-secondary" type="button">취소</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div id="counterWorkspace" class="counter-workspace">
+            <div id="counterImageWrap" class="counter-image-wrap">
+              <img id="counterPreviewImage" class="counter-preview-image" alt="단수세기 도안 미리보기" />
+              <div id="counterOverlay" class="counter-overlay" aria-hidden="true"></div>
+            </div>
+
+            <div class="counter-control-panel">
+              <p id="counterCurrentRowLabel" class="counter-current-row-label">현재 단수를 준비하고 있어요.</p>
+              <div class="counter-control-actions">
+                <button id="counterPrevButton" class="button button-secondary counter-control-button" type="button">이전</button>
+                <button id="counterToggleCurrentButton" class="button button-primary counter-control-button counter-control-button-main" type="button">
+                  완료
+                </button>
+              </div>
+              <button
+                id="counterListToggleButton"
+                class="button button-secondary counter-list-toggle"
+                type="button"
+                aria-expanded="false"
+              >
+                전체 단수 보기
+              </button>
+            </div>
+
+            <div id="counterButtonsPanel" class="counter-buttons-panel">
+              <div id="counterButtons" class="counter-buttons" aria-live="polite"></div>
+            </div>
+          </div>
+        </article>
+      </section>
+    </main>
+
+    <script>
+      const COMPLETION_COLORS = [
+        { key: "red", label: "빨강", rgb: [255, 99, 99] },
+        { key: "green", label: "초록", rgb: [96, 196, 132] },
+        { key: "black", label: "검정", rgb: [55, 55, 55] },
+        { key: "blue", label: "파랑", rgb: [105, 156, 255] },
+        { key: "gold", label: "노랑", rgb: [232, 182, 65] },
+      ];
+
+      const sparkleLayer = document.querySelector("#sparkleLayer");
+      const backButton = document.querySelector("#backButton");
+      const counterImageInput = document.querySelector("#counterImageInput");
+      const counterStatus = document.querySelector("#counterStatus");
+      const counterSection = document.querySelector("#row-progress-section");
+      const counterSummary = document.querySelector("#counterSummary");
+      const counterPreviewImage = document.querySelector("#counterPreviewImage");
+      const counterOverlay = document.querySelector("#counterOverlay");
+      const counterButtonsPanel = document.querySelector("#counterButtonsPanel");
+      const counterButtons = document.querySelector("#counterButtons");
+      const counterColorPalette = document.querySelector("#counterColorPalette");
+      const counterCurrentRowLabel = document.querySelector("#counterCurrentRowLabel");
+      const counterPrevButton = document.querySelector("#counterPrevButton");
+      const counterToggleCurrentButton = document.querySelector("#counterToggleCurrentButton");
+      const counterListToggleButton = document.querySelector("#counterListToggleButton");
+      const counterAdjustRowsButton = document.querySelector("#counterAdjustRowsButton");
+      const counterAdjustRowsForm = document.querySelector("#counterAdjustRowsForm");
+      const counterManualRowsInput = document.querySelector("#counterManualRowsInput");
+      const counterApplyRowsButton = document.querySelector("#counterApplyRowsButton");
+      const counterCancelRowsButton = document.querySelector("#counterCancelRowsButton");
+
+      const counterState = {
+        sourceDescriptor: null,
+        image: null,
+        imageUrl: null,
+        fingerprint: null,
+        gridBounds: null,
+        autoDetectedRowCount: 0,
+        manualRows: null,
+        rowRegions: [],
+        checkedRows: [],
+        checkedOrder: [],
+        completionColorKey: "red",
+        focusedRowIndex: -1,
+        isListExpanded: false,
+      };
+
+      let lastSparkleAt = 0;
+
+      counterImageInput.addEventListener("change", handleCounterImageSelect);
+      backButton.addEventListener("click", handleBackNavigation);
+      counterPrevButton.addEventListener("click", undoLastCompletedRow);
+      counterToggleCurrentButton.addEventListener("click", toggleFocusedRow);
+      counterListToggleButton.addEventListener("click", toggleRowList);
+      counterAdjustRowsButton.addEventListener("click", openAdjustRowsForm);
+      counterApplyRowsButton.addEventListener("click", applyManualRows);
+      counterCancelRowsButton.addEventListener("click", closeAdjustRowsForm);
+      window.addEventListener("resize", handleCounterResize);
+      document.addEventListener("mousemove", handleSparkleTrail);
+      document.addEventListener("keydown", handleCounterKeydown);
+
+      async function handleCounterImageSelect(event) {
+        const [file] = event.target.files ?? [];
+
+        if (!file) {
+          return;
+        }
+
+        await loadPatternFromSource({
+          file,
+          name: file.name,
+          size: file.size,
+          lastModified: file.lastModified,
+        });
+      }
+
+      async function loadPatternFromSource(sourceDescriptor) {
+        clearCounterView();
+        setCounterStatus("도안을 불러오는 중이에요...");
+
+        let imageSource = null;
+
+        try {
+          console.info("[counter] selected pattern source", {
+            name: sourceDescriptor.name,
+            src: "(uploaded file)",
+          });
+
+          imageSource = await resolveCounterSource(sourceDescriptor);
+          const image = await loadImage(imageSource);
+          cleanupObjectUrl(counterState.imageUrl);
+
+          const analysis = analyzePatternRows(image);
+          const fingerprint = buildFingerprint(sourceDescriptor, image, analysis.rowRegions.length);
+          const savedState = loadSavedState(fingerprint, analysis.rowRegions.length);
+          const effectiveRowCount = savedState.manualRows ?? analysis.rowRegions.length;
+
+          counterState.sourceDescriptor = sourceDescriptor;
+          counterState.image = image;
+          counterState.imageUrl = imageSource;
+          counterState.fingerprint = fingerprint;
+          counterState.gridBounds = analysis.gridBounds;
+          counterState.autoDetectedRowCount = analysis.rowRegions.length;
+          counterState.manualRows = savedState.manualRows;
+          counterState.rowRegions = buildRowRegionsForCount(analysis.gridBounds, effectiveRowCount);
+          counterState.checkedRows = normalizeCheckedRows(savedState.checkedRows, effectiveRowCount);
+          counterState.checkedOrder = normalizeCheckedOrder(savedState.checkedOrder, counterState.checkedRows);
+          counterState.completionColorKey = savedState.completionColorKey;
+          counterState.focusedRowIndex = findActiveRowIndex();
+          if (counterState.focusedRowIndex === -1) {
+            counterState.focusedRowIndex = counterState.rowRegions.length - 1;
+          }
+          counterState.isListExpanded = false;
+
+          renderCounterWorkspace();
+          setCounterStatus("");
+          console.info("[counter] image load success", {
+            name: sourceDescriptor.name,
+            src: "(uploaded file)",
+          });
+        } catch (error) {
+          cleanupObjectUrl(imageSource);
+          clearCounterView();
+          console.error("[counter] image load failed", {
+            name: sourceDescriptor.name,
+            src: "(uploaded file)",
+            error,
+          });
+          setCounterStatus(normalizeCounterLoadError(error));
+        }
+      }
+
+      async function resolveCounterSource(sourceDescriptor) {
+        if (!sourceDescriptor?.file) {
+          throw new Error("도안 이미지를 먼저 업로드해주세요.");
+        }
+
+        return URL.createObjectURL(sourceDescriptor.file);
+      }
+
+      function handleBackNavigation() {
+        if (window.history.length > 1) {
+          window.history.back();
+        } else {
+          window.location.href = "./index.html";
+        }
+      }
+
+      function handleCounterKeydown(event) {
+        if (event.key === "Escape" && !counterAdjustRowsForm.hidden) {
+          closeAdjustRowsForm();
+        }
+      }
+
+      function loadImage(source) {
+        return new Promise((resolve, reject) => {
+          const image = new Image();
+          image.onload = () => resolve(image);
+          image.onerror = () => reject(new Error("도안 파일을 불러오지 못했어요. 이미지 파일을 다시 확인해주세요."));
+          image.src = source;
+        });
+      }
+
+      function analyzePatternRows(image) {
+        try {
+          const canvas = drawImageToCanvas(image);
+          const gridBounds = detectGridBounds(canvas);
+          const rowLines = detectHorizontalLines(canvas, gridBounds);
+          const rowRegions = buildRowRegions(rowLines, gridBounds);
+
+          if (rowRegions.length === 0) {
+            throw new Error("가로줄을 찾지 못했어요. 격자가 선명한 이미지를 다시 올려주세요.");
+          }
+
+          return {
+            gridBounds,
+            rowRegions,
+          };
+        } catch (error) {
+          if (error?.name === "SecurityError" || String(error?.message || "").includes("tainted")) {
+            throw new Error("도안 이미지를 분석할 수 없어요. 다른 이미지로 다시 시도해주세요.");
+          }
+          throw error;
+        }
+      }
+
+      function drawImageToCanvas(image) {
+        const canvas = document.createElement("canvas");
+        canvas.width = image.naturalWidth;
+        canvas.height = image.naturalHeight;
+        const context = canvas.getContext("2d", { willReadFrequently: true });
+        context.drawImage(image, 0, 0);
+        return canvas;
+      }
+
+      function detectGridBounds(canvas) {
+        const context = canvas.getContext("2d", { willReadFrequently: true });
+        const { width, height } = canvas;
+        const { data } = context.getImageData(0, 0, width, height);
+
+        const rowScores = [];
+        for (let y = 0; y < height; y += 1) {
+          let darkPixels = 0;
+          for (let x = 0; x < width; x += 1) {
+            const offset = (y * width + x) * 4;
+            if (getLuminance(data[offset], data[offset + 1], data[offset + 2]) < 190) {
+              darkPixels += 1;
+            }
+          }
+          rowScores.push(darkPixels / width);
+        }
+
+        const colScores = [];
+        for (let x = 0; x < width; x += 1) {
+          let darkPixels = 0;
+          for (let y = 0; y < height; y += 1) {
+            const offset = (y * width + x) * 4;
+            if (getLuminance(data[offset], data[offset + 1], data[offset + 2]) < 190) {
+              darkPixels += 1;
+            }
+          }
+          colScores.push(darkPixels / height);
+        }
+
+        const rowBand = findDenseBand(rowScores);
+        const colBand = findDenseBand(colScores);
+
+        if (!rowBand || !colBand) {
+          return { left: 0, top: 0, right: width, bottom: height };
+        }
+
+        const [top, bottom] = rowBand;
+        const [left, right] = colBand;
+
+        return {
+          left: Math.max(0, left),
+          top: Math.max(0, top),
+          right: Math.min(width, right + 1),
+          bottom: Math.min(height, bottom + 1),
+        };
+      }
+
+      function findDenseBand(scores) {
+        if (!scores.length) {
+          return null;
+        }
+
+        const maxScore = Math.max(...scores);
+        if (maxScore <= 0) {
+          return null;
+        }
+
+        const threshold = Math.max(0.14, maxScore * 0.55);
+        const indices = scores
+          .map((score, index) => (score >= threshold ? index : -1))
+          .filter((index) => index >= 0);
+
+        if (indices.length < 2) {
+          return null;
+        }
+
+        return [
+          Math.max(0, indices[0] - 2),
+          Math.min(scores.length - 1, indices[indices.length - 1] + 2),
+        ];
+      }
+
+      function detectHorizontalLines(canvas, bounds) {
+        const context = canvas.getContext("2d", { willReadFrequently: true });
+        const { width } = canvas;
+        const { data } = context.getImageData(0, 0, canvas.width, canvas.height);
+        const scanWidth = Math.max(1, bounds.right - bounds.left);
+        const scores = [];
+
+        for (let y = bounds.top; y < bounds.bottom; y += 1) {
+          let darkPixels = 0;
+          for (let x = bounds.left; x < bounds.right; x += 1) {
+            const offset = (y * width + x) * 4;
+            if (getLuminance(data[offset], data[offset + 1], data[offset + 2]) < 170) {
+              darkPixels += 1;
+            }
+          }
+          scores.push({
+            y,
+            value: darkPixels / scanWidth,
+          });
+        }
+
+        const maxScore = Math.max(...scores.map((score) => score.value));
+        let threshold = Math.max(0.18, maxScore * 0.6);
+        let groupedLines = groupLinePeaks(scores, threshold);
+
+        if (groupedLines.length < 2) {
+          threshold = Math.max(0.12, maxScore * 0.45);
+          groupedLines = groupLinePeaks(scores, threshold);
+        }
+
+        if (groupedLines.length < 2) {
+          return [bounds.top, bounds.bottom];
+        }
+
+        const averageGap = averageDistance(groupedLines);
+        const lines = [...groupedLines];
+
+        if (lines[0] - bounds.top > Math.max(8, averageGap * 0.5)) {
+          lines.unshift(bounds.top);
+        }
+
+        if (bounds.bottom - lines[lines.length - 1] > Math.max(8, averageGap * 0.5)) {
+          lines.push(bounds.bottom);
+        }
+
+        return dedupeNearbyLines(lines, 3);
+      }
+
+      function groupLinePeaks(scores, threshold) {
+        const groups = [];
+        let current = null;
+
+        scores.forEach((score) => {
+          if (score.value >= threshold) {
+            if (!current) {
+              current = {
+                weightedSum: score.y * score.value,
+                weight: score.value,
+              };
+            } else {
+              current.weightedSum += score.y * score.value;
+              current.weight += score.value;
+            }
+          } else if (current) {
+            groups.push(current);
+            current = null;
+          }
+        });
+
+        if (current) {
+          groups.push(current);
+        }
+
+        return groups.map((group) => Math.round(group.weightedSum / Math.max(group.weight, 0.0001)));
+      }
+
+      function averageDistance(values) {
+        if (values.length < 2) {
+          return 0;
+        }
+
+        let total = 0;
+        for (let index = 1; index < values.length; index += 1) {
+          total += values[index] - values[index - 1];
+        }
+
+        return total / (values.length - 1);
+      }
+
+      function dedupeNearbyLines(lines, minGap) {
+        const result = [];
+
+        lines
+          .slice()
+          .sort((left, right) => left - right)
+          .forEach((line) => {
+            if (!result.length || line - result[result.length - 1] >= minGap) {
+              result.push(line);
+            }
+          });
+
+        return result;
+      }
+
+      function buildRowRegions(lines, bounds) {
+        const rows = [];
+
+        for (let index = 0; index < lines.length - 1; index += 1) {
+          const top = Math.max(bounds.top, lines[index]);
+          const bottom = Math.min(bounds.bottom, lines[index + 1]);
+
+          if (bottom - top < 4) {
+            continue;
+          }
+
+          rows.push({ top, bottom });
+        }
+
+        return rows;
+      }
+
+      function buildRowRegionsForCount(bounds, rowCount) {
+        const rows = [];
+        const clampedRowCount = Math.max(1, Number.parseInt(rowCount, 10) || 1);
+        const gridHeight = Math.max(1, bounds.bottom - bounds.top);
+
+        for (let index = 0; index < clampedRowCount; index += 1) {
+          const top = Math.round(bounds.top + (gridHeight * index) / clampedRowCount);
+          const bottom = Math.round(bounds.top + (gridHeight * (index + 1)) / clampedRowCount);
+
+          rows.push({ top, bottom });
+        }
+
+        return rows;
+      }
+
+      function renderCounterWorkspace() {
+        if (!counterState.imageUrl || !counterState.rowRegions.length) {
+          return;
+        }
+
+        counterSection.hidden = false;
+        counterSection.style.display = "grid";
+        counterPreviewImage.src = counterState.imageUrl;
+        counterPreviewImage.width = counterState.image.naturalWidth;
+        counterPreviewImage.height = counterState.image.naturalHeight;
+        counterManualRowsInput.value = String(counterState.manualRows ?? counterState.autoDetectedRowCount ?? "");
+        closeAdjustRowsForm();
+
+        renderColorPalette();
+        renderCounterOverlays();
+        renderCounterButtons();
+        renderCounterSummary();
+        renderCurrentControls();
+      }
+
+      function renderColorPalette() {
+        counterColorPalette.innerHTML = "";
+
+        COMPLETION_COLORS.forEach((color) => {
+          const chip = document.createElement("button");
+          chip.type = "button";
+          chip.className = "counter-color-chip";
+          chip.setAttribute("aria-label", `${color.label} 완료 표시색 선택`);
+          chip.title = color.label;
+          chip.style.setProperty("--counter-chip-rgb", color.rgb.join(", "));
+
+          if (counterState.completionColorKey === color.key) {
+            chip.classList.add("is-selected");
+          }
+
+          chip.addEventListener("click", () => {
+            counterState.completionColorKey = color.key;
+            saveCounterState();
+            renderColorPalette();
+            renderCounterOverlays();
+            renderCounterButtons();
+            renderCurrentControls();
+          });
+
+          counterColorPalette.appendChild(chip);
+        });
+      }
+
+      function renderCounterOverlays() {
+        counterOverlay.innerHTML = "";
+
+        const totalRows = counterState.rowRegions.length;
+        const highlightIndex = getHighlightedRowIndex();
+        const imageWidth = counterState.image.naturalWidth;
+        const imageHeight = counterState.image.naturalHeight;
+        const gridLeft = counterState.gridBounds.left;
+        const gridWidth = counterState.gridBounds.right - counterState.gridBounds.left;
+        const selectedColor = getCompletionColor(counterState.completionColorKey);
+
+        counterState.rowRegions.forEach((row, index) => {
+          const overlay = document.createElement("div");
+          overlay.className = "counter-row-overlay";
+
+          if (counterState.checkedRows[index]) {
+            overlay.classList.add("is-complete");
+            overlay.style.setProperty("--counter-complete-rgb", selectedColor.rgb.join(", "));
+          }
+
+          if (highlightIndex === index) {
+            overlay.classList.add("is-current");
+          }
+
+          overlay.style.left = `${(gridLeft / imageWidth) * 100}%`;
+          overlay.style.width = `${(gridWidth / imageWidth) * 100}%`;
+          overlay.style.top = `${(row.top / imageHeight) * 100}%`;
+          overlay.style.height = `${((row.bottom - row.top) / imageHeight) * 100}%`;
+          overlay.dataset.rowNumber = String(totalRows - index);
+          counterOverlay.appendChild(overlay);
+        });
+      }
+
+      function renderCounterButtons() {
+        counterButtons.innerHTML = "";
+        const totalRows = counterState.rowRegions.length;
+        const highlightIndex = getHighlightedRowIndex();
+        const selectedColor = getCompletionColor(counterState.completionColorKey);
+
+        counterButtonsPanel.classList.toggle("is-expanded", counterState.isListExpanded);
+
+        counterState.rowRegions.forEach((_, index) => {
+          const button = document.createElement("button");
+          const rowNumber = totalRows - index;
+          button.type = "button";
+          button.className = "counter-row-button";
+
+          if (counterState.checkedRows[index]) {
+            button.classList.add("is-complete");
+            button.style.setProperty("--counter-accent-rgb", selectedColor.rgb.join(", "));
+          }
+
+          if (highlightIndex === index) {
+            button.classList.add("is-current");
+          }
+
+          button.innerHTML = `
+            <span class="counter-row-button__icon">${counterState.checkedRows[index] ? "✓" : "○"}</span>
+            <span class="counter-row-button__label">${rowNumber}단</span>
+          `;
+
+          button.addEventListener("click", () => {
+            counterState.focusedRowIndex = index;
+            renderCounterOverlays();
+            renderCounterButtons();
+            renderCurrentControls();
+
+            if (counterState.isListExpanded) {
+              const focusedButton = counterButtons.children[index];
+              if (focusedButton) {
+                focusedButton.scrollIntoView({ block: "nearest", behavior: "smooth" });
+              }
+            }
+          });
+
+          counterButtons.appendChild(button);
+        });
+      }
+
+      function renderCounterSummary() {
+        const totalRows = counterState.rowRegions.length;
+        const completed = counterState.checkedRows.filter(Boolean).length;
+        const currentIndex = findActiveRowIndex();
+        const rowSourceLabel = counterState.manualRows
+          ? `직접 입력 ${counterState.manualRows}단 기준`
+          : `자동 인식 ${counterState.autoDetectedRowCount}단 기준`;
+
+        if (currentIndex === -1) {
+          counterSummary.textContent = `${completed} / ${totalRows}단 완료. 모든 줄을 다 체크했어요. ${rowSourceLabel}`;
+          return;
+        }
+
+        const currentRowNumber = rowNumberFromIndex(currentIndex);
+        counterSummary.textContent = `${completed} / ${totalRows}단 완료. 지금은 ${currentRowNumber}단을 진행하면 돼요. ${rowSourceLabel}`;
+      }
+
+      function renderCurrentControls() {
+        const totalRows = counterState.rowRegions.length;
+        const highlightedIndex = getHighlightedRowIndex();
+        const activeIndex = findActiveRowIndex();
+
+        if (highlightedIndex === -1 || totalRows === 0) {
+          counterCurrentRowLabel.textContent = "모든 단을 완료했어요.";
+          counterPrevButton.disabled = counterState.checkedOrder.length === 0;
+          counterToggleCurrentButton.disabled = true;
+          counterToggleCurrentButton.textContent = "완료";
+          counterListToggleButton.textContent = counterState.isListExpanded ? "전체 단수 닫기" : "전체 단수 보기";
+          counterListToggleButton.setAttribute("aria-expanded", String(counterState.isListExpanded));
+          return;
+        }
+
+        const rowNumber = rowNumberFromIndex(highlightedIndex);
+        const isComplete = counterState.checkedRows[highlightedIndex];
+
+        if (activeIndex === -1) {
+          counterCurrentRowLabel.textContent = `모든 단 완료, 지금은 ${rowNumber}단을 보고 있어요.`;
+        } else if (isComplete) {
+          counterCurrentRowLabel.textContent = `${rowNumber}단은 이미 완료됐어요. 다음 진행은 ${rowNumberFromIndex(activeIndex)}단이에요.`;
+        } else {
+          counterCurrentRowLabel.textContent = `현재 ${rowNumber}단`;
+        }
+
+        counterPrevButton.disabled = counterState.checkedOrder.length === 0;
+        counterToggleCurrentButton.disabled = isComplete;
+        counterToggleCurrentButton.textContent = isComplete ? `${rowNumber}단 완료됨` : `${rowNumber}단 완료`;
+        counterListToggleButton.textContent = counterState.isListExpanded ? "전체 단수 닫기" : "전체 단수 보기";
+        counterListToggleButton.setAttribute("aria-expanded", String(counterState.isListExpanded));
+      }
+
+      function toggleFocusedRow() {
+        const highlightedIndex = getHighlightedRowIndex();
+        if (highlightedIndex === -1 || counterState.checkedRows[highlightedIndex]) {
+          return;
+        }
+
+        markRowComplete(highlightedIndex);
+        const nextActive = findActiveRowIndex();
+        counterState.focusedRowIndex = nextActive !== -1 ? nextActive : highlightedIndex;
+
+        saveCounterState();
+        renderCounterOverlays();
+        renderCounterButtons();
+        renderCounterSummary();
+        renderCurrentControls();
+
+        if (counterState.isListExpanded) {
+          const buttonIndex = counterState.focusedRowIndex >= 0 ? counterState.focusedRowIndex : highlightedIndex;
+          const highlightedButton = counterButtons.children[buttonIndex];
+          if (highlightedButton) {
+            highlightedButton.scrollIntoView({ block: "nearest", behavior: "smooth" });
+          }
+        }
+      }
+
+      function undoLastCompletedRow() {
+        const lastCompletedIndex = counterState.checkedOrder[counterState.checkedOrder.length - 1];
+        if (typeof lastCompletedIndex !== "number") {
+          return;
+        }
+
+        markRowIncomplete(lastCompletedIndex);
+        counterState.focusedRowIndex = lastCompletedIndex;
+        saveCounterState();
+        renderCounterOverlays();
+        renderCounterButtons();
+        renderCounterSummary();
+        renderCurrentControls();
+
+        if (counterState.isListExpanded) {
+          const button = counterButtons.children[lastCompletedIndex];
+          if (button) {
+            button.scrollIntoView({ block: "nearest", behavior: "smooth" });
+          }
+        }
+      }
+
+      function toggleRowList() {
+        counterState.isListExpanded = !counterState.isListExpanded;
+        renderCounterButtons();
+        renderCurrentControls();
+
+        if (counterState.isListExpanded) {
+          const highlightedIndex = getHighlightedRowIndex();
+          const highlightedButton = counterButtons.children[highlightedIndex];
+          if (highlightedButton) {
+            highlightedButton.scrollIntoView({ block: "nearest", behavior: "smooth" });
+          }
+        }
+      }
+
+      function rowNumberFromIndex(index) {
+        return counterState.rowRegions.length - index;
+      }
+
+      function getHighlightedRowIndex() {
+        if (counterState.focusedRowIndex >= 0 && counterState.focusedRowIndex < counterState.rowRegions.length) {
+          return counterState.focusedRowIndex;
+        }
+
+        return findActiveRowIndex();
+      }
+
+      function findActiveRowIndex() {
+        for (let index = counterState.checkedRows.length - 1; index >= 0; index -= 1) {
+          if (!counterState.checkedRows[index]) {
+            return index;
+          }
+        }
+
+        return -1;
+      }
+
+      function clearCounterView() {
+        cleanupObjectUrl(counterState.imageUrl);
+        counterState.sourceDescriptor = null;
+        counterState.image = null;
+        counterState.imageUrl = null;
+        counterState.fingerprint = null;
+        counterState.gridBounds = null;
+        counterState.autoDetectedRowCount = 0;
+        counterState.manualRows = null;
+        counterState.rowRegions = [];
+        counterState.checkedRows = [];
+        counterState.checkedOrder = [];
+        counterState.completionColorKey = "red";
+        counterState.focusedRowIndex = -1;
+        counterState.isListExpanded = false;
+
+        counterPreviewImage.removeAttribute("src");
+        counterOverlay.innerHTML = "";
+        counterButtons.innerHTML = "";
+        counterButtonsPanel.classList.remove("is-expanded");
+        counterColorPalette.innerHTML = "";
+        counterManualRowsInput.value = "";
+        closeAdjustRowsForm();
+        counterSection.hidden = true;
+        counterSection.style.display = "none";
+        counterSummary.textContent = "이미지를 분석해서 단수 진행표를 준비하고 있어요.";
+        counterCurrentRowLabel.textContent = "현재 단수를 준비하고 있어요.";
+        counterToggleCurrentButton.textContent = "완료";
+        counterToggleCurrentButton.disabled = true;
+        counterPrevButton.disabled = true;
+        counterListToggleButton.textContent = "전체 단수 보기";
+        counterListToggleButton.setAttribute("aria-expanded", "false");
+      }
+
+      function buildFingerprint(sourceDescriptor, image, rowCount) {
+        const base = ["upload", sourceDescriptor.name, sourceDescriptor.size, sourceDescriptor.lastModified];
+        return [...base, `${image.naturalWidth}x${image.naturalHeight}`, rowCount].join(":");
+      }
+
+      function loadSavedState(fingerprint, rowCount) {
+        try {
+          const rawValue = localStorage.getItem(`counterState:${fingerprint}`);
+          const defaultState = {
+            checkedRows: Array.from({ length: rowCount }, () => false),
+            checkedOrder: [],
+            completionColorKey: "red",
+            manualRows: null,
+          };
+
+          if (!rawValue) {
+            return defaultState;
+          }
+
+          const parsed = JSON.parse(rawValue);
+          if (!parsed || typeof parsed !== "object") {
+            return defaultState;
+          }
+
+          const checkedRows = Array.isArray(parsed.checkedRows) && parsed.checkedRows.length === rowCount
+            ? parsed.checkedRows.map((item) => Boolean(item))
+            : defaultState.checkedRows;
+          const checkedOrder = Array.isArray(parsed.checkedOrder)
+            ? parsed.checkedOrder
+                .filter((item) => Number.isInteger(item) && item >= 0 && item < rowCount && checkedRows[item])
+                .filter((item, index, source) => source.indexOf(item) === index)
+            : checkedRows.reduce((result, checked, index) => {
+                if (checked) {
+                  result.push(index);
+                }
+                return result;
+              }, []);
+
+          const completionColorKey = COMPLETION_COLORS.some((color) => color.key === parsed.completionColorKey)
+            ? parsed.completionColorKey
+            : "red";
+          const manualRows = Number.isInteger(parsed.manualRows) && parsed.manualRows > 0
+            ? parsed.manualRows
+            : null;
+
+          return {
+            checkedRows,
+            checkedOrder,
+            completionColorKey,
+            manualRows,
+          };
+        } catch (error) {
+          return {
+            checkedRows: Array.from({ length: rowCount }, () => false),
+            checkedOrder: [],
+            completionColorKey: "red",
+            manualRows: null,
+          };
+        }
+      }
+
+      function saveCounterState() {
+        if (!counterState.fingerprint) {
+          return;
+        }
+
+        localStorage.setItem(
+          `counterState:${counterState.fingerprint}`,
+          JSON.stringify({
+            checkedRows: counterState.checkedRows,
+            checkedOrder: counterState.checkedOrder,
+            completionColorKey: counterState.completionColorKey,
+            manualRows: counterState.manualRows,
+          }),
+        );
+      }
+
+      function markRowComplete(index) {
+        counterState.checkedRows[index] = true;
+        counterState.checkedOrder = counterState.checkedOrder.filter((item) => item !== index);
+        counterState.checkedOrder.push(index);
+      }
+
+      function markRowIncomplete(index) {
+        counterState.checkedRows[index] = false;
+        counterState.checkedOrder = counterState.checkedOrder.filter((item) => item !== index);
+      }
+
+      function getCompletionColor(colorKey) {
+        return COMPLETION_COLORS.find((color) => color.key === colorKey) ?? COMPLETION_COLORS[0];
+      }
+
+      function normalizeCheckedRows(checkedRows, rowCount) {
+        if (!Array.isArray(checkedRows) || checkedRows.length !== rowCount) {
+          return Array.from({ length: rowCount }, () => false);
+        }
+
+        return checkedRows.map((item) => Boolean(item));
+      }
+
+      function normalizeCheckedOrder(checkedOrder, checkedRows) {
+        if (!Array.isArray(checkedOrder)) {
+          return checkedRows.reduce((result, checked, index) => {
+            if (checked) {
+              result.push(index);
+            }
+            return result;
+          }, []);
+        }
+
+        return checkedOrder
+          .filter((item) => Number.isInteger(item) && item >= 0 && item < checkedRows.length && checkedRows[item])
+          .filter((item, index, source) => source.indexOf(item) === index);
+      }
+
+      function openAdjustRowsForm() {
+        if (!counterState.gridBounds) {
+          return;
+        }
+
+        counterManualRowsInput.value = String(counterState.manualRows ?? counterState.autoDetectedRowCount ?? "");
+        counterAdjustRowsForm.hidden = false;
+        counterManualRowsInput.focus();
+        counterManualRowsInput.select();
+      }
+
+      function closeAdjustRowsForm() {
+        counterAdjustRowsForm.hidden = true;
+      }
+
+      function applyManualRows() {
+        if (!counterState.gridBounds) {
+          return;
+        }
+
+        const manualRows = Number.parseInt(counterManualRowsInput.value, 10);
+        if (!Number.isInteger(manualRows) || manualRows < 1) {
+          setCounterStatus("세로 단 수는 1 이상의 정수로 입력해주세요.");
+          counterManualRowsInput.focus();
+          return;
+        }
+
+        counterState.manualRows = manualRows;
+        counterState.rowRegions = buildRowRegionsForCount(counterState.gridBounds, manualRows);
+        counterState.checkedRows = Array.from({ length: manualRows }, () => false);
+        counterState.checkedOrder = [];
+        counterState.focusedRowIndex = manualRows - 1;
+        counterState.isListExpanded = false;
+
+        saveCounterState();
+        closeAdjustRowsForm();
+        setCounterStatus("");
+        renderCounterOverlays();
+        renderCounterButtons();
+        renderCounterSummary();
+        renderCurrentControls();
+      }
+
+      function setCounterStatus(message) {
+        counterStatus.textContent = message;
+      }
+
+      function normalizeCounterLoadError(error) {
+        const message = String(error?.message || "");
+
+        if (error?.name === "SecurityError" || message.includes("tainted")) {
+          return "도안 이미지를 분석할 수 없어요. 다른 이미지로 다시 시도해주세요.";
+        }
+
+        return message || "도안 파일을 불러오지 못했어요. 이미지 파일을 다시 확인해주세요.";
+      }
+
+      function getLuminance(red, green, blue) {
+        return 0.299 * red + 0.587 * green + 0.114 * blue;
+      }
+
+      function cleanupObjectUrl(url) {
+        if (url && url.startsWith("blob:")) {
+          URL.revokeObjectURL(url);
+        }
+      }
+
+      function handleCounterResize() {
+        if (counterSection.hidden || counterSection.style.display === "none") {
+          return;
+        }
+
+        renderCounterButtons();
+        renderCurrentControls();
+        renderCounterOverlays();
+      }
+
+      function handleSparkleTrail(event) {
+        if (!sparkleLayer) {
+          return;
+        }
+
+        if (window.matchMedia("(pointer: coarse)").matches) {
+          return;
+        }
+
+        const now = performance.now();
+        if (now - lastSparkleAt < 40) {
+          return;
+        }
+
+        if (Math.random() > 0.3) {
+          return;
+        }
+
+        lastSparkleAt = now;
+        createSparkle(event.clientX, event.clientY);
+      }
+
+      function createSparkle(x, y) {
+        const sparkle = document.createElement("div");
+        const size = 4 + Math.random() * 6;
+        const offsetX = (Math.random() - 0.5) * 14;
+        const offsetY = (Math.random() - 0.5) * 14;
+
+        sparkle.className = "sparkle";
+        sparkle.style.width = `${size}px`;
+        sparkle.style.height = `${size}px`;
+        sparkle.style.left = `${x + offsetX}px`;
+        sparkle.style.top = `${y + offsetY}px`;
+        sparkle.style.animationDuration = `${650 + Math.random() * 250}ms`;
+
+        sparkleLayer.appendChild(sparkle);
+        sparkle.addEventListener("animationend", () => sparkle.remove(), { once: true });
+      }
+    </script>
+  </body>
+</html>
